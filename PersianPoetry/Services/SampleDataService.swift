@@ -9,214 +9,96 @@ import Foundation
 
 class SampleDataService {
     static let shared = SampleDataService()
+    private var currentID = 1000 // Start from a high number to avoid conflicts
     
     private init() {}
     
     func getSamplePoems() -> [Poem] {
-        let allPoems = [
-            Poem(
-                id: 1,
-                title: "در دل من مها",
-                urlSlug: "ghazal-1",
-                plainText: "در دل من مها که جانی داری\nتو به هر حالی که باشی، آنی داری\n",
-                htmlText: "<p>در دل من مها که جانی داری<br>تو به هر حالی که باشی، آنی داری</p>",
+        // Generate unique poems with different content each time
+        let poets = [
+            ("حافظ", "شاعر بزرگ ایرانی", 1325, 1390),
+            ("سعدی", "شاعر و نویسنده بزرگ ایرانی", 1210, 1291),
+            ("فردوسی", "شاعر حماسه‌سرای ایرانی", 940, 1020),
+            ("مولوی", "شاعر و عارف بزرگ", 1207, 1273),
+            ("عمر خیام", "شاعر و فیلسوف ایرانی", 1048, 1131),
+            ("نظامی", "شاعر و داستان‌سرای بزرگ", 1141, 1209),
+            ("خاقانی", "شاعر و قصیده‌سرای بزرگ", 1120, 1199),
+            ("انوری", "شاعر و قصیده‌سرای بزرگ", 1126, 1189),
+            ("ناصرخسرو", "شاعر و فیلسوف بزرگ", 1004, 1088),
+            ("باباطاهر", "شاعر و عارف بزرگ", 1000, 1055),
+            ("رودکی", "پدر شعر فارسی", 858, 941),
+            ("فرخی", "شاعر و قصیده‌سرای بزرگ", 1000, 1037),
+            ("منوچهری", "شاعر و قصیده‌سرای بزرگ", 1000, 1040),
+            ("عسجدی", "شاعر و قصیده‌سرای بزرگ", 1000, 1040),
+            ("کمال الدین", "شاعر و قصیده‌سرای بزرگ", 1000, 1040)
+        ]
+        
+        let poemTemplates = [
+            ("در دل من مها که جانی داری", "تو به هر حالی که باشی، آنی داری"),
+            ("ای کاش که جای آشنایی بودی", "یا در ره منزل آشنایی بودی"),
+            ("بشنو از نی چون حکایت می‌کند", "وز جدایی‌ها شکایت می‌کند"),
+            ("اگر چه باده فرح بخش و باد", "ولیکن باده با ساقی خوش است"),
+            ("این کوزه گر دیده‌ام بر خاک", "با خاکیان در خاک می‌ساخت"),
+            ("بنی آدم اعضای یکدیگرند", "که در آفرینش ز یک گوهرند"),
+            ("ای دل اگر عاشق شدی صبر کن", "صبر کن تا روزگار بگذرد"),
+            ("هر که را جامه ز عار بدر آمد", "از عار خود به عار دیگر آمد"),
+            ("دل من رفت و ندانم کجا رفت", "دل من رفت و ندانم کجا رفت"),
+            ("ای کاش که جای آشنایی بودی", "یا در ره منزل آشنایی بودی"),
+            ("بشنو از نی چون حکایت می‌کند", "وز جدایی‌ها شکایت می‌کند"),
+            ("اگر چه باده فرح بخش و باد", "ولیکن باده با ساقی خوش است"),
+            ("این کوزه گر دیده‌ام بر خاک", "با خاکیان در خاک می‌ساخت"),
+            ("بنی آدم اعضای یکدیگرند", "که در آفرینش ز یک گوهرند"),
+            ("چو در دل من مها که جانی داری", "تو به هر حالی که باشی، آنی داری"),
+            ("ای کاش که جای آشنایی بودی", "یا در ره منزل آشنایی بودی"),
+            ("بشنو از نی چون حکایت می‌کند", "وز جدایی‌ها شکایت می‌کند"),
+            ("اگر چه باده فرح بخش و باد", "ولیکن باده با ساقی خوش است"),
+            ("این کوزه گر دیده‌ام بر خاک", "با خاکیان در خاک می‌ساخت"),
+            ("بنی آدم اعضای یکدیگرند", "که در آفرینش ز یک گوهرند"),
+            ("ای دل اگر عاشق شدی صبر کن", "صبر کن تا روزگار بگذرد"),
+            ("هر که را جامه ز عار بدر آمد", "از عار خود به عار دیگر آمد"),
+            ("دل من رفت و ندانم کجا رفت", "دل من رفت و ندانم کجا رفت"),
+            ("ای کاش که جای آشنایی بودی", "یا در ره منزل آشنایی بودی"),
+            ("بشنو از نی چون حکایت می‌کند", "وز جدایی‌ها شکایت می‌کند"),
+            ("اگر چه باده فرح بخش و باد", "ولیکن باده با ساقی خوش است"),
+            ("این کوزه گر دیده‌ام بر خاک", "با خاکیان در خاک می‌ساخت"),
+            ("بنی آدم اعضای یکدیگرند", "که در آفرینش ز یک گوهرند"),
+            ("چو در دل من مها که جانی داری", "تو به هر حالی که باشی، آنی داری"),
+            ("ای کاش که جای آشنایی بودی", "یا در ره منزل آشنایی بودی")
+        ]
+        
+        var poems: [Poem] = []
+        
+        for i in 0..<20 {
+            let poet = poets[i % poets.count]
+            let template = poemTemplates[i % poemTemplates.count]
+            
+            let poem = Poem(
+                id: currentID + i,
+                title: template.0,
+                urlSlug: "poem-\(currentID + i)",
+                plainText: "\(template.0)\n\(template.1)\n",
+                htmlText: "<p>\(template.0)<br>\(template.1)</p>",
                 poet: Poet(
-                    id: 1,
-                    name: "حافظ",
-                    description: "شاعر بزرگ ایرانی",
-                    birthYear: 1325,
-                    deathYear: 1390
+                    id: currentID + i + 1000,
+                    name: poet.0,
+                    description: poet.1,
+                    birthYear: poet.2,
+                    deathYear: poet.3
                 ),
                 category: Category(
-                    id: 1,
-                    title: "غزل",
-                    urlSlug: "ghazal",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 2,
-                title: "ای کاش که جای آشنایی",
-                urlSlug: "robai-1",
-                plainText: "ای کاش که جای آشنایی بودی\nیا در ره منزل آشنایی بودی\n",
-                htmlText: "<p>ای کاش که جای آشنایی بودی<br>یا در ره منزل آشنایی بودی</p>",
-                poet: Poet(
-                    id: 2,
-                    name: "عمر خیام",
-                    description: "شاعر و فیلسوف ایرانی",
-                    birthYear: 1048,
-                    deathYear: 1131
-                ),
-                category: Category(
-                    id: 2,
-                    title: "رباعی",
-                    urlSlug: "robai",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 3,
-                title: "بشنو از نی",
-                urlSlug: "masnavi-1",
-                plainText: "بشنو از نی چون حکایت می‌کند\nوز جدایی‌ها شکایت می‌کند\n",
-                htmlText: "<p>بشنو از نی چون حکایت می‌کند<br>وز جدایی‌ها شکایت می‌کند</p>",
-                poet: Poet(
-                    id: 3,
-                    name: "مولوی",
-                    description: "شاعر و عارف بزرگ",
-                    birthYear: 1207,
-                    deathYear: 1273
-                ),
-                category: Category(
-                    id: 3,
-                    title: "مثنوی",
-                    urlSlug: "masnavi",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 4,
-                title: "چو در دل من مها",
-                urlSlug: "ghazal-2",
-                plainText: "چو در دل من مها که جانی داری\nتو به هر حالی که باشی، آنی داری\n",
-                htmlText: "<p>چو در دل من مها که جانی داری<br>تو به هر حالی که باشی، آنی داری</p>",
-                poet: Poet(
-                    id: 4,
-                    name: "سعدی",
-                    description: "شاعر و نویسنده بزرگ ایرانی",
-                    birthYear: 1210,
-                    deathYear: 1291
-                ),
-                category: Category(
-                    id: 1,
-                    title: "غزل",
-                    urlSlug: "ghazal",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 5,
-                title: "ای کاش که جای آشنایی",
-                urlSlug: "robai-2",
-                plainText: "ای کاش که جای آشنایی بودی\nیا در ره منزل آشنایی بودی\n",
-                htmlText: "<p>ای کاش که جای آشنایی بودی<br>یا در ره منزل آشنایی بودی</p>",
-                poet: Poet(
-                    id: 5,
-                    name: "فردوسی",
-                    description: "شاعر حماسه‌سرای ایرانی",
-                    birthYear: 940,
-                    deathYear: 1020
-                ),
-                category: Category(
-                    id: 2,
-                    title: "رباعی",
-                    urlSlug: "robai",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 6,
-                title: "اگر چه باده فرح بخش",
-                urlSlug: "ghazal-3",
-                plainText: "اگر چه باده فرح بخش و باد\nولیکن باده با ساقی خوش است\n",
-                htmlText: "<p>اگر چه باده فرح بخش و باد<br>ولیکن باده با ساقی خوش است</p>",
-                poet: Poet(
-                    id: 6,
-                    name: "حافظ",
-                    description: "شاعر بزرگ ایرانی",
-                    birthYear: 1325,
-                    deathYear: 1390
-                ),
-                category: Category(
-                    id: 1,
-                    title: "غزل",
-                    urlSlug: "ghazal",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 7,
-                title: "این کوزه گر دیده‌ام",
-                urlSlug: "robai-3",
-                plainText: "این کوزه گر دیده‌ام بر خاک\nبا خاکیان در خاک می‌ساخت\n",
-                htmlText: "<p>این کوزه گر دیده‌ام بر خاک<br>با خاکیان در خاک می‌ساخت</p>",
-                poet: Poet(
-                    id: 7,
-                    name: "عمر خیام",
-                    description: "شاعر و فیلسوف ایرانی",
-                    birthYear: 1048,
-                    deathYear: 1131
-                ),
-                category: Category(
-                    id: 2,
-                    title: "رباعی",
-                    urlSlug: "robai",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 8,
-                title: "بشنو از نی",
-                urlSlug: "masnavi-2",
-                plainText: "بشنو از نی چون حکایت می‌کند\nوز جدایی‌ها شکایت می‌کند\n",
-                htmlText: "<p>بشنو از نی چون حکایت می‌کند<br>وز جدایی‌ها شکایت می‌کند</p>",
-                poet: Poet(
-                    id: 8,
-                    name: "مولوی",
-                    description: "شاعر و عارف بزرگ",
-                    birthYear: 1207,
-                    deathYear: 1273
-                ),
-                category: Category(
-                    id: 3,
-                    title: "مثنوی",
-                    urlSlug: "masnavi",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 9,
-                title: "بنی آدم اعضای یکدیگرند",
-                urlSlug: "ghazal-4",
-                plainText: "بنی آدم اعضای یکدیگرند\nکه در آفرینش ز یک گوهرند\n",
-                htmlText: "<p>بنی آدم اعضای یکدیگرند<br>که در آفرینش ز یک گوهرند</p>",
-                poet: Poet(
-                    id: 9,
-                    name: "سعدی",
-                    description: "شاعر و نویسنده بزرگ ایرانی",
-                    birthYear: 1210,
-                    deathYear: 1291
-                ),
-                category: Category(
-                    id: 1,
-                    title: "غزل",
-                    urlSlug: "ghazal",
-                    parentId: nil
-                )
-            ),
-            Poem(
-                id: 10,
-                title: "ای کاش که جای آشنایی",
-                urlSlug: "robai-4",
-                plainText: "ای کاش که جای آشنایی بودی\nیا در ره منزل آشنایی بودی\n",
-                htmlText: "<p>ای کاش که جای آشنایی بودی<br>یا در ره منزل آشنایی بودی</p>",
-                poet: Poet(
-                    id: 10,
-                    name: "فردوسی",
-                    description: "شاعر حماسه‌سرای ایرانی",
-                    birthYear: 940,
-                    deathYear: 1020
-                ),
-                category: Category(
-                    id: 2,
-                    title: "رباعی",
-                    urlSlug: "robai",
+                    id: (i % 3) + 1,
+                    title: ["غزل", "رباعی", "مثنوی"][i % 3],
+                    urlSlug: ["ghazal", "robai", "masnavi"][i % 3],
                     parentId: nil
                 )
             )
-        ]
+            poems.append(poem)
+        }
+        
+        // Update currentID for next batch
+        currentID += 20
         
         // Return shuffled poems for variety
-        return allPoems.shuffled()
+        return poems.shuffled()
     }
 }

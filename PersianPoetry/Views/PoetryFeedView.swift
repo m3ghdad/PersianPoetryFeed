@@ -44,12 +44,13 @@ struct PoetryFeedView: View {
                                     )
                                     .containerRelativeFrame(.vertical)
                                     .id(index)
-                                    .onAppear {
-                                        // Load more poems when approaching the end
-                                        if index >= viewModel.poems.count - 3 {
-                                            viewModel.loadMorePoems()
-                                        }
-                                    }
+                                           .onAppear {
+                                               // Load more poems when user reaches 10th card from the end (for 1000 poem batches)
+                                               if index >= viewModel.poems.count - 10 {
+                                                   print("Loading more poems - user at index \(index), total poems: \(viewModel.poems.count)")
+                                                   viewModel.loadMorePoems()
+                                               }
+                                           }
                                 }
                             }
                             .scrollTargetLayout()
@@ -119,7 +120,7 @@ struct PoetryFeedView: View {
                 }
             }
         }
-        .onChange(of: refreshTrigger) { _ in
+        .onChange(of: refreshTrigger) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             isRefreshing = true
             refreshStartTime = Date()
@@ -188,58 +189,112 @@ struct PoetryAnimatedCard: View {
     }
 }
 
-// MARK: - View Model
-class PoetryFeedViewModel: ObservableObject {
-    @Published var poems: [Poem] = []
-    @Published var animationTypes: [String] = []
-    @Published var isLoading = false
-    @Published var isLoadingMore = false
-    @Published var error: String?
-    
-    private let apiService = APIService.shared
-    private let animationService = AnimationService.shared
-    private var cancellables = Set<AnyCancellable>()
-    private let batchSize = 10
+    // MARK: - View Model
+    class PoetryFeedViewModel: ObservableObject {
+        @Published var poems: [Poem] = []
+        @Published var animationTypes: [String] = []
+        @Published var isLoading = false
+        @Published var isLoadingMore = false
+        @Published var error: String?
+        
+        private let apiService = APIService.shared
+        private let animationService = AnimationService.shared
+        private var cancellables = Set<AnyCancellable>()
+        private let batchSize = 1000 // Large batch size for initial load
+        private let loadMoreSize = 1000 // Large batch size for loading more
+        private var hasLoadedInitialBatch = false
+
+    private let pageSize = 20
+    private var currentPage = 1
+    private var currentKeyword: String = ""
+    private var isExhausted = false
+
+    private func randomKeyword() -> String {
+        let letters = ["ا","ب","پ","ت","ث","ج","چ","ح","خ","د","ذ","ر","ز","ژ","س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ک","گ","ل","م","ن","و","ه","ی"]
+        return letters.randomElement() ?? "ا"
+    }
     
     func loadInitialPoems() {
         isLoading = true
         error = nil
-        
+        poems.removeAll()
+        animationTypes.removeAll()
+        hasLoadedInitialBatch = false
+
+        print("Loading initial batch of \(batchSize) poems...")
+
         apiService.fetchRandomPoems(count: batchSize)
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
                     self?.isLoading = false
                     if case .failure(let error) = completion {
                         print("API Error: \(error)")
                         self?.error = "Failed to load poetry: \(error.localizedDescription)"
+                        // Try to load from Core Data as fallback
+                        self?.loadFromCoreData()
                     }
                 },
-                receiveValue: { [weak self] poems in
-                    print("Successfully loaded \(poems.count) poems")
-                    self?.poems = poems
-                    self?.animationTypes = self?.animationService.getAnimationTypes(count: poems.count) ?? []
+                receiveValue: { [weak self] results in
+                    guard let self else { return }
+                    print("Successfully loaded \(results.count) poems from API")
+                    self.poems = results
+                    self.animationTypes = self.animationService.getAnimationTypes(count: results.count)
+                    self.hasLoadedInitialBatch = true
+                    self.error = results.isEmpty ? "No poems found." : nil
+                    
+                    // Save to Core Data for future use
+                    self.saveToCoreData(poems: results)
+                    
+                    // Proactively load more content to ensure we never run out
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        self.loadMorePoems()
+                    }
                 }
             )
             .store(in: &cancellables)
     }
     
     func loadMorePoems() {
-        guard !isLoadingMore else { return }
+        guard !isLoadingMore else { 
+            print("Already loading more poems, skipping...")
+            return 
+        }
+        
+        // Proactively load more if we're running low on content
+        if poems.count < 20 && !isLoadingMore { // If less than 20 poems, load more aggressively
+            print("Proactively loading more poems due to low count (\(poems.count))...")
+        } else {
+            print("Starting to load more poems...")
+        }
+        
         isLoadingMore = true
         
-        apiService.fetchRandomPoems(count: batchSize)
+        print("Loading \(loadMoreSize) more poems...")
+        
+        apiService.fetchRandomPoems(count: loadMoreSize)
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
                     self?.isLoadingMore = false
                     if case .failure(let error) = completion {
                         print("API Error loading more: \(error)")
+                        // Try to load from Core Data as fallback
+                        self?.loadMoreFromCoreData()
                     }
                 },
                 receiveValue: { [weak self] newPoems in
+                    guard let self else { return }
                     print("Successfully loaded \(newPoems.count) more poems")
-                    self?.poems.append(contentsOf: newPoems)
-                    let newAnimationTypes = self?.animationService.getAnimationTypes(count: newPoems.count) ?? []
-                    self?.animationTypes.append(contentsOf: newAnimationTypes)
+                    print("Total poems before: \(self.poems.count)")
+                    self.poems.append(contentsOf: newPoems)
+                    let newAnimationTypes = self.animationService.getAnimationTypes(count: newPoems.count)
+                    self.animationTypes.append(contentsOf: newAnimationTypes)
+                    print("Total poems after: \(self.poems.count)")
+                    print("Total animation types: \(self.animationTypes.count)")
+                    
+                    // Save to Core Data for future use
+                    self.saveToCoreData(poems: newPoems)
                 }
             )
             .store(in: &cancellables)
@@ -249,6 +304,34 @@ class PoetryFeedViewModel: ObservableObject {
         poems.removeAll()
         animationTypes.removeAll()
         loadInitialPoems()
+    }
+    
+    // MARK: - Core Data Methods
+    private func saveToCoreData(poems: [Poem]) {
+        // This would save poems to Core Data for offline use
+        // For now, we'll just print that we would save them
+        print("Would save \(poems.count) poems to Core Data")
+    }
+    
+    private func loadFromCoreData() {
+        // This would load poems from Core Data as fallback
+        // For now, we'll fall back to sample data
+        print("Loading from Core Data fallback...")
+        let samplePoems = SampleDataService.shared.getSamplePoems()
+        let shuffledPoems = Array(samplePoems.shuffled().prefix(batchSize))
+        self.poems = shuffledPoems
+        self.animationTypes = self.animationService.getAnimationTypes(count: shuffledPoems.count)
+        self.error = nil
+    }
+    
+    private func loadMoreFromCoreData() {
+        // This would load more poems from Core Data as fallback
+        print("Loading more from Core Data fallback...")
+        let samplePoems = SampleDataService.shared.getSamplePoems()
+        let shuffledPoems = Array(samplePoems.shuffled().prefix(loadMoreSize))
+        self.poems.append(contentsOf: shuffledPoems)
+        let newAnimationTypes = self.animationService.getAnimationTypes(count: shuffledPoems.count)
+        self.animationTypes.append(contentsOf: newAnimationTypes)
     }
 }
 
@@ -262,3 +345,4 @@ extension Array {
 #Preview {
     PoetryFeedView(refreshTrigger: .constant(false))
 }
+

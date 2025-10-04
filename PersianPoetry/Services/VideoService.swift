@@ -11,29 +11,23 @@ import SwiftUI
 class AnimationService {
     static let shared = AnimationService()
     
-    // Animation types for Persian poetry backgrounds
+    // Animation types for Persian poetry backgrounds - all minimalistic
     private let animationTypes = [
-        "messy_sketches",
-        "floating_particles",
-        "gradient_waves", 
-        "geometric_patterns",
-        "floating_hearts",
-        "sparkling_stars",
-        "flowing_lines",
-        "colorful_bubbles",
-        "mystical_aurora"
+        "looping_line",
+        "looping_line",
+        "looping_line",
+        "looping_line",
+        "looping_line"
     ]
     
     private init() {}
     
     func getRandomAnimationType() -> String {
-        let type = "messy_sketches"
-        print("Selected animation type: \(type)")
-        return type
+        return "looping_line"
     }
     
     func getAnimationTypes(count: Int) -> [String] {
-        return Array(repeating: "messy_sketches", count: max(0, count))
+        return Array(repeating: "looping_line", count: max(0, count))
     }
 }
 
@@ -55,6 +49,8 @@ struct AnimatedBackgroundView: View {
             
             // Animated content based on type
             switch animationType {
+            case "looping_line":
+                LoopingLineView()
             case "messy_sketches":
                 MessySketchesView()
             case "floating_particles":
@@ -74,7 +70,7 @@ struct AnimatedBackgroundView: View {
             case "mystical_aurora":
                 MysticalAuroraView()
             default:
-                FloatingParticlesView()
+                LoopingLineView()
             }
         }
         .ignoresSafeArea()
@@ -82,31 +78,137 @@ struct AnimatedBackgroundView: View {
 }
 
 // MARK: - Animation Components
-struct FloatingParticlesView: View {
-    @State private var particles: [Particle] = []
+struct LoopingLineView: View {
+    @State private var rotation: Double = 0
+    @State private var scale: CGFloat = 1.0
+    @State private var opacity: Double = 0.3
     
     var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle()
-                    .fill(particle.color)
-                    .frame(width: particle.size, height: particle.size)
-                    .position(particle.position)
-                    .opacity(particle.opacity)
+        GeometryReader { geometry in
+            ZStack {
+                // Single minimalistic looping line
+                LoopingLineShape()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.4),
+                                Color.white.opacity(0.2),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1.0
+                    )
+                    .frame(
+                        width: geometry.size.width * 0.6,
+                        height: geometry.size.height * 0.6
+                    )
+                    .rotationEffect(.degrees(rotation))
+                    .scaleEffect(scale)
+                    .opacity(opacity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            generateParticles()
             startAnimation()
         }
     }
     
-    private func generateParticles() {
+    private func startAnimation() {
+        // Very slow, subtle rotation
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            rotation = 360
+        }
+        
+        // Very gentle scale pulse
+        withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+            scale = 1.05
+        }
+        
+        // Subtle breathing opacity
+        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
+            opacity = 0.15
+        }
+    }
+}
+
+struct LoopingLineShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        
+        // Create a figure-8 or infinity symbol
+        let width = radius * 0.6
+        let height = radius * 0.4
+        
+        // Start from the left side
+        path.move(to: CGPoint(x: center.x - width, y: center.y))
+        
+        // Create the first loop (left side)
+        path.addCurve(
+            to: CGPoint(x: center.x, y: center.y - height),
+            control1: CGPoint(x: center.x - width/2, y: center.y - height/2),
+            control2: CGPoint(x: center.x - width/4, y: center.y - height)
+        )
+        
+        // Create the second loop (right side)
+        path.addCurve(
+            to: CGPoint(x: center.x + width, y: center.y),
+            control1: CGPoint(x: center.x + width/4, y: center.y - height),
+            control2: CGPoint(x: center.x + width/2, y: center.y - height/2)
+        )
+        
+        // Complete the bottom part
+        path.addCurve(
+            to: CGPoint(x: center.x, y: center.y + height),
+            control1: CGPoint(x: center.x + width/2, y: center.y + height/2),
+            control2: CGPoint(x: center.x + width/4, y: center.y + height)
+        )
+        
+        // Close the loop
+        path.addCurve(
+            to: CGPoint(x: center.x - width, y: center.y),
+            control1: CGPoint(x: center.x - width/4, y: center.y + height),
+            control2: CGPoint(x: center.x - width/2, y: center.y + height/2)
+        )
+        
+        return path
+    }
+}
+
+struct FloatingParticlesView: View {
+    @State private var particles: [Particle] = []
+    
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(particles) { particle in
+                    Circle()
+                        .fill(particle.color)
+                        .frame(width: particle.size, height: particle.size)
+                        .position(particle.position)
+                        .opacity(particle.opacity)
+                }
+            }
+            .onAppear {
+                generateParticles(in: size)
+                startAnimation()
+            }
+            .onChange(of: size) { newSize in
+                generateParticles(in: newSize)
+            }
+        }
+    }
+    
+    private func generateParticles(in size: CGSize) {
         particles = (0..<20).map { _ in
             Particle(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 size: CGFloat.random(in: 4...12),
                 color: [Color.purple, Color.blue, Color.pink, Color.orange].randomElement() ?? .purple,
@@ -182,26 +284,32 @@ struct FloatingHeartsView: View {
     @State private var hearts: [Heart] = []
     
     var body: some View {
-        ZStack {
-            ForEach(hearts) { heart in
-                Text("💖")
-                    .font(.system(size: heart.size))
-                    .position(heart.position)
-                    .opacity(heart.opacity)
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(hearts) { heart in
+                    Text("💖")
+                        .font(.system(size: heart.size))
+                        .position(heart.position)
+                        .opacity(heart.opacity)
+                }
             }
-        }
-        .onAppear {
-            generateHearts()
-            startHeartAnimation()
+            .onAppear {
+                generateHearts(in: size)
+                startHeartAnimation()
+            }
+            .onChange(of: size) { newSize in
+                generateHearts(in: newSize)
+            }
         }
     }
     
-    private func generateHearts() {
+    private func generateHearts(in size: CGSize) {
         hearts = (0..<8).map { _ in
             Heart(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 size: CGFloat.random(in: 20...40),
                 opacity: Double.random(in: 0.4...0.8)
@@ -223,26 +331,32 @@ struct SparklingStarsView: View {
     @State private var stars: [Star] = []
     
     var body: some View {
-        ZStack {
-            ForEach(stars) { star in
-                Text("✨")
-                    .font(.system(size: star.size))
-                    .position(star.position)
-                    .opacity(star.opacity)
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(stars) { star in
+                    Text("✨")
+                        .font(.system(size: star.size))
+                        .position(star.position)
+                        .opacity(star.opacity)
+                }
             }
-        }
-        .onAppear {
-            generateStars()
-            startStarAnimation()
+            .onAppear {
+                generateStars(in: size)
+                startStarAnimation()
+            }
+            .onChange(of: size) { newSize in
+                generateStars(in: newSize)
+            }
         }
     }
     
-    private func generateStars() {
+    private func generateStars(in size: CGSize) {
         stars = (0..<15).map { _ in
             Star(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 size: CGFloat.random(in: 15...30),
                 opacity: Double.random(in: 0.3...0.9)
@@ -263,50 +377,56 @@ struct FlowingLinesView: View {
     @State private var lines: [FlowingLine] = []
     
     var body: some View {
-        ZStack {
-            ForEach(lines) { line in
-                Path { path in
-                    path.move(to: line.startPoint)
-                    path.addCurve(
-                        to: line.endPoint,
-                        control1: line.control1,
-                        control2: line.control2
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(lines) { line in
+                    Path { path in
+                        path.move(to: line.startPoint)
+                        path.addCurve(
+                            to: line.endPoint,
+                            control1: line.control1,
+                            control2: line.control2
+                        )
+                    }
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.6), Color.blue.opacity(0.6)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 2
                     )
                 }
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.purple.opacity(0.6), Color.blue.opacity(0.6)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2
-                )
             }
-        }
-        .onAppear {
-            generateLines()
-            startLineAnimation()
+            .onAppear {
+                generateLines(in: size)
+                startLineAnimation()
+            }
+            .onChange(of: size) { newSize in
+                generateLines(in: newSize)
+            }
         }
     }
     
-    private func generateLines() {
+    private func generateLines(in size: CGSize) {
         lines = (0..<6).map { _ in
             FlowingLine(
                 startPoint: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 endPoint: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 control1: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 control2: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 )
             )
         }
@@ -448,34 +568,40 @@ struct ColorfulBubblesView: View {
     @State private var bubbles: [Bubble] = []
     
     var body: some View {
-        ZStack {
-            ForEach(bubbles) { bubble in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [bubble.color.opacity(0.6), bubble.color.opacity(0.2)],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: bubble.size / 2
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(bubbles) { bubble in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [bubble.color.opacity(0.6), bubble.color.opacity(0.2)],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: bubble.size / 2
+                            )
                         )
-                    )
-                    .frame(width: bubble.size, height: bubble.size)
-                    .position(bubble.position)
-                    .opacity(bubble.opacity)
+                        .frame(width: bubble.size, height: bubble.size)
+                        .position(bubble.position)
+                        .opacity(bubble.opacity)
+                }
             }
-        }
-        .onAppear {
-            generateBubbles()
-            startBubbleAnimation()
+            .onAppear {
+                generateBubbles(in: size)
+                startBubbleAnimation()
+            }
+            .onChange(of: size) { newSize in
+                generateBubbles(in: newSize)
+            }
         }
     }
     
-    private func generateBubbles() {
+    private func generateBubbles(in size: CGSize) {
         bubbles = (0..<12).map { _ in
             Bubble(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
+                    x: CGFloat.random(in: 0...size.width),
+                    y: CGFloat.random(in: 0...size.height)
                 ),
                 size: CGFloat.random(in: 30...80),
                 color: [Color.purple, Color.blue, Color.pink, Color.orange, Color.green].randomElement() ?? .purple,
