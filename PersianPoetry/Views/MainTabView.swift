@@ -6,48 +6,43 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
     @State private var refreshTrigger = false
-    
+    @State private var isRefreshingAnim = false
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            PoetryFeedView(refreshTrigger: $refreshTrigger)
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("Home")
+        PoetryFeedView(refreshTrigger: $refreshTrigger)
+            .ignoresSafeArea()
+            .safeAreaInset(edge: .bottom) {
+                HStack {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        isRefreshingAnim = true
+                        refreshTrigger.toggle()
+                        // Ensure a minimum visible animation duration
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            isRefreshingAnim = false
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .rotationEffect(.degrees(isRefreshingAnim ? 360 : 0))
+                            .animation(isRefreshingAnim ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshingAnim)
+                            .font(.system(size: 18, weight: .semibold))
+                            .padding(12)
+                    }
+                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+                    .scaleEffect(isRefreshingAnim ? 1.05 : 1.0)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isRefreshingAnim)
+                    .disabled(isRefreshingAnim)
+
+                    Spacer()
                 }
-                .tag(0)
-            
-            Text("Search")
-                .tabItem {
-                    Image(systemName: "magnifyingglass")
-                    Text("Search")
-                }
-                .tag(1)
-            
-            Text("Favorites")
-                .tabItem {
-                    Image(systemName: "heart.fill")
-                    Text("Favorites")
-                }
-                .tag(2)
-            
-            Text("Profile")
-                .tabItem {
-                    Image(systemName: "person.fill")
-                    Text("Profile")
-                }
-                .tag(3)
-        }
-        .accentColor(.white)
-        .onChange(of: selectedTab) {
-            if selectedTab == 0 {
-                // Trigger refresh when home tab is tapped
-                refreshTrigger.toggle()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
             }
-        }
     }
 }
 

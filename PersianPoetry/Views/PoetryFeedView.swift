@@ -12,6 +12,9 @@ import UIKit
 struct PoetryFeedView: View {
     @StateObject private var viewModel = PoetryFeedViewModel()
     @State private var currentIndex: Int? = 0
+    @State private var isRefreshing = false
+    @State private var refreshStartTime: Date? = nil
+    private let minRefreshDuration: TimeInterval = 1.2
     @Binding var refreshTrigger: Bool
     
     var body: some View {
@@ -58,6 +61,8 @@ struct PoetryFeedView: View {
                         .sensoryFeedback(.selection, trigger: currentIndex)
                         .refreshable {
                             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                            isRefreshing = true
+                            refreshStartTime = Date()
                             viewModel.refreshPoems()
                             currentIndex = 0
                         }
@@ -81,16 +86,50 @@ struct PoetryFeedView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .top) {
+            if isRefreshing {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Refreshing…")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.black.opacity(0.5))
+                .clipShape(Capsule())
+                .padding(.top, 8)
+            } else {
+                EmptyView().frame(height: 0)
+            }
+        }
         .onAppear {
             viewModel.loadInitialPoems()
         }
+        .onChange(of: viewModel.isLoading) {
+            if !viewModel.isLoading {
+                let elapsed = refreshStartTime.map { Date().timeIntervalSince($0) } ?? minRefreshDuration
+                let remaining = max(0, minRefreshDuration - elapsed)
+                DispatchQueue.main.asyncAfter(deadline: .now() + remaining) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isRefreshing = false
+                    }
+                    refreshStartTime = nil
+                }
+            }
+        }
         .onChange(of: refreshTrigger) { _ in
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            isRefreshing = true
+            refreshStartTime = Date()
             viewModel.refreshPoems()
             currentIndex = 0
         }
         .onTapGesture(count: 2) {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            isRefreshing = true
+            refreshStartTime = Date()
             viewModel.refreshPoems()
             currentIndex = 0
         }
@@ -223,4 +262,3 @@ extension Array {
 #Preview {
     PoetryFeedView(refreshTrigger: .constant(false))
 }
-

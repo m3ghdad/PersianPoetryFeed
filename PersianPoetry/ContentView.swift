@@ -8,8 +8,11 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var refreshTrigger = false
+
     var body: some View {
-        MainTabView()
+        PoetryFeedView(refreshTrigger: $refreshTrigger)
+            .ignoresSafeArea()
     }
 }
 

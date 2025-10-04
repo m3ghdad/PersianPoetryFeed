@@ -13,6 +13,7 @@ class AnimationService {
     
     // Animation types for Persian poetry backgrounds
     private let animationTypes = [
+        "messy_sketches",
         "floating_particles",
         "gradient_waves", 
         "geometric_patterns",
@@ -26,17 +27,13 @@ class AnimationService {
     private init() {}
     
     func getRandomAnimationType() -> String {
-        guard let randomType = animationTypes.randomElement() else { return "floating_particles" }
-        print("Selected animation type: \(randomType)")
-        return randomType
+        let type = "messy_sketches"
+        print("Selected animation type: \(type)")
+        return type
     }
     
     func getAnimationTypes(count: Int) -> [String] {
-        var types: [String] = []
-        for _ in 0..<count {
-            types.append(getRandomAnimationType())
-        }
-        return types
+        return Array(repeating: "messy_sketches", count: max(0, count))
     }
 }
 
@@ -51,13 +48,15 @@ struct AnimatedBackgroundView: View {
         ZStack {
             // Base gradient background
             LinearGradient(
-                colors: [Color.purple.opacity(0.3), Color.blue.opacity(0.3), Color.pink.opacity(0.3)],
+                colors: [Color.black, Color.black.opacity(0.95)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             // Animated content based on type
             switch animationType {
+            case "messy_sketches":
+                MessySketchesView()
             case "floating_particles":
                 FloatingParticlesView()
             case "gradient_waves":
@@ -323,6 +322,128 @@ struct FlowingLinesView: View {
     }
 }
 
+struct MessySketchesView: View {
+    @State private var stroke: SketchStroke? = nil
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation) { timeline in
+                let size = geo.size
+                let time = timeline.date.timeIntervalSinceReferenceDate
+
+                ZStack {
+                    if let s = stroke {
+                        Path { path in
+                            let pts = morphingLoopPoints(for: s, time: time, in: size, samples: 260)
+                            guard let first = pts.first else { return }
+                            path.move(to: first)
+                            for p in pts.dropFirst() {
+                                path.addLine(to: p)
+                            }
+                            path.closeSubpath()
+                        }
+                        .stroke(Color.white.opacity(s.opacity),
+                                style: StrokeStyle(lineWidth: s.lineWidth, lineCap: .round, lineJoin: .round))
+                    }
+                }
+                .onAppear { generateStroke(in: size) }
+                .onChange(of: size) { newSize in generateStroke(in: newSize) }
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private func generateStroke(in size: CGSize) {
+        let minDim = min(size.width, size.height)
+        let center = CGPoint(x: size.width * 0.5, y: size.height * 0.55)
+        let baseRadius = CGFloat.random(in: minDim * 0.22...minDim * 0.36)
+        let radiusPulseAmp = CGFloat.random(in: 0.08...0.18) // ±8–18%
+        let radiusPulseSpeed = CGFloat.random(in: 0.18...0.28) // calm
+        let eccMin: CGFloat = 0.04  // near-line
+        let eccMax: CGFloat = 1.0   // perfect circle
+        let eccSpeed = CGFloat.random(in: 0.12...0.22)
+        let rotationSpeed = CGFloat.random(in: 0.18...0.32)
+        let noiseAmp = baseRadius * CGFloat.random(in: 0.015...0.045)
+        let noiseFreq = CGFloat.random(in: 0.8...1.6)
+        let lineWidth = CGFloat.random(in: 1.0...1.8)
+        let opacity = Double.random(in: 0.45...0.75)
+
+        stroke = SketchStroke(
+            center: center,
+            baseRadius: baseRadius,
+            radiusPulseAmplitude: radiusPulseAmp,
+            radiusPulseSpeed: radiusPulseSpeed,
+            eccentricityMin: eccMin,
+            eccentricityMax: eccMax,
+            eccentricitySpeed: eccSpeed,
+            rotationSpeed: rotationSpeed,
+            noiseAmplitude: noiseAmp,
+            noiseFrequency: noiseFreq,
+            lineWidth: lineWidth,
+            opacity: opacity,
+            seed: CGFloat.random(in: 0...(2 * .pi))
+        )
+    }
+
+    private func morphingLoopPoints(for s: SketchStroke, time: TimeInterval, in size: CGSize, samples: Int) -> [CGPoint] {
+        // Time-based parameters
+        let t = CGFloat(time)
+        let phaseRot = t * s.rotationSpeed + s.seed
+
+        // Radius pulsing (expand/shrink)
+        let pulse = sin(t * s.radiusPulseSpeed + s.seed) * s.radiusPulseAmplitude
+        let radius = s.baseRadius * (1 + pulse)
+
+        // Eccentricity morph (line <-> circle)
+        let eccPhase = (sin(t * s.eccentricitySpeed + s.seed * 0.7) + 1) * 0.5 // 0..1
+        let ecc = s.eccentricityMin + (s.eccentricityMax - s.eccentricityMin) * eccPhase
+
+        let twoPi = CGFloat.pi * 2
+        let step = twoPi / CGFloat(samples)
+        var points: [CGPoint] = []
+        points.reserveCapacity(samples + 1)
+
+        for i in 0...samples {
+            let a = CGFloat(i) * step
+            // Elliptical radii with small noise ripple
+            let rx = radius
+            let ry = max(0, radius * ecc)
+            let n = sin(a * s.noiseFrequency + phaseRot) * s.noiseAmplitude
+            let x = s.center.x + (rx + n) * cos(a + phaseRot)
+            let y = s.center.y + (ry + n) * sin(a + phaseRot)
+            points.append(CGPoint(x: x, y: y))
+        }
+        return points
+    }
+}
+
+struct SketchStroke: Identifiable {
+    let id = UUID()
+    let center: CGPoint
+
+    // Radius base and pulsing
+    let baseRadius: CGFloat
+    let radiusPulseAmplitude: CGFloat // 0..~0.2 of base radius
+    let radiusPulseSpeed: CGFloat
+
+    // Eccentricity morph between line (≈0) and circle (=1)
+    let eccentricityMin: CGFloat
+    let eccentricityMax: CGFloat
+    let eccentricitySpeed: CGFloat
+
+    // Motion and organic noise
+    let rotationSpeed: CGFloat
+    let noiseAmplitude: CGFloat
+    let noiseFrequency: CGFloat
+
+    // Rendering
+    let lineWidth: CGFloat
+    let opacity: Double
+
+    // Random seed
+    let seed: CGFloat
+}
+
 struct ColorfulBubblesView: View {
     @State private var bubbles: [Bubble] = []
     
@@ -486,3 +607,4 @@ struct AuroraShape: Shape {
         return path
     }
 }
+
