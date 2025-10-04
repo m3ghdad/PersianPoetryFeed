@@ -74,3 +74,4 @@ The app integrates with the Ganjoor API (https://api.ganjoor.net) to fetch:
 - User profiles
 - Social sharing
 - Offline support
+# PersianPoetryFeed
